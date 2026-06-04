@@ -1,56 +1,60 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserDatabase {
   static final UserDatabase instance = UserDatabase._init();
 
-  static Database? _database;
+  static const String _usersKey = 'users';
 
   UserDatabase._init();
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
+  Future<List<Map<String, dynamic>>> _getUsers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_usersKey);
 
-    _database = await _initDB('users.db');
-    return _database!;
+    if (data == null || data.isEmpty) return [];
+
+    final decoded = jsonDecode(data) as List<dynamic>;
+    return decoded.cast<Map<String, dynamic>>();
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+  Future<void> _saveUsers(List<Map<String, dynamic>> users) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_usersKey, jsonEncode(users));
+  }
 
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
+  Future<void> insertUser(Map<String, dynamic> row) async {
+    final users = await _getUsers();
+    final email = (row['email'] as String).trim().toLowerCase();
+
+    final existingUser = users.any(
+      (user) => (user['email'] as String).trim().toLowerCase() == email,
     );
-  }
 
-  Future _createDB(Database db, int version) async {
-    await db.execute('''
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT,
-  email TEXT,
-  password TEXT
-)
-''');
-  }
+    if (existingUser) {
+      throw Exception('El correo ya esta registrado');
+    }
 
-  Future insertUser(Map<String, dynamic> row) async {
-    final db = await instance.database;
-    return await db.insert('users', row);
+    users.add({
+      'id': DateTime.now().millisecondsSinceEpoch,
+      'name': (row['name'] as String).trim(),
+      'email': email,
+      'password': (row['password'] as String).trim(),
+    });
+
+    await _saveUsers(users);
   }
 
   Future<bool> loginUser(String email, String password) async {
-    final db = await instance.database;
+    final users = await _getUsers();
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanPassword = password.trim();
 
-    final result = await db.query(
-      'users',
-      where: 'email = ? AND password = ?',
-      whereArgs: [email, password],
+    return users.any(
+      (user) =>
+          (user['email'] as String).trim().toLowerCase() == cleanEmail &&
+          (user['password'] as String).trim() == cleanPassword,
     );
-
-    return result.isNotEmpty;
   }
 }

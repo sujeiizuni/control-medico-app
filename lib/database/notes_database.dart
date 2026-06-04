@@ -1,52 +1,55 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotesDatabase {
   static final NotesDatabase instance = NotesDatabase._init();
 
-  static Database? _database;
+  static const String _notesKey = 'notes';
 
   NotesDatabase._init();
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
+  Future<List<Map<String, dynamic>>> _getStoredNotes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_notesKey);
 
-    _database = await _initDB('notes.db');
-    return _database!;
+    if (data == null || data.isEmpty) return [];
+
+    final decoded = jsonDecode(data) as List<dynamic>;
+    return decoded.cast<Map<String, dynamic>>();
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-    );
+  Future<void> _saveStoredNotes(List<Map<String, dynamic>> notes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_notesKey, jsonEncode(notes));
   }
 
-  Future _createDB(Database db, int version) async {
-    await db.execute('''
-CREATE TABLE notes (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  date TEXT,
-  note TEXT
-)
-''');
-  }
+  Future<void> insertNote(String date, String note) async {
+    final notes = await _getStoredNotes();
 
-  Future insertNote(String date, String note) async {
-    final db = await instance.database;
-
-    await db.insert('notes', {
+    notes.add({
+      'id': DateTime.now().millisecondsSinceEpoch,
       'date': date,
-      'note': note,
+      'note': note.trim(),
     });
+
+    await _saveStoredNotes(notes);
   }
 
   Future<List<Map<String, dynamic>>> getNotes() async {
-    final db = await instance.database;
-    return await db.query('notes');
+    final notes = await _getStoredNotes();
+    notes.sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
+    return notes;
+  }
+
+  Future<List<Map<String, dynamic>>> getNotesByDate(String date) async {
+    final notes = await getNotes();
+    return notes.where((note) => note['date'] == date).toList();
+  }
+
+  Future<void> deleteNote(int id) async {
+    final notes = await _getStoredNotes();
+    notes.removeWhere((note) => note['id'] == id);
+    await _saveStoredNotes(notes);
   }
 }
