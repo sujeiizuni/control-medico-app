@@ -24,13 +24,22 @@ class NotesDatabase {
     await prefs.setString(_notesKey, jsonEncode(notes));
   }
 
-  Future<void> insertNote(String date, String note) async {
+  Future<void> insertNote(
+    String date,
+    String note, {
+    String category = 'General',
+    String priority = 'Normal',
+  }) async {
     final notes = await _getStoredNotes();
+    final now = DateTime.now();
 
     notes.add({
-      'id': DateTime.now().millisecondsSinceEpoch,
+      'id': now.millisecondsSinceEpoch,
       'date': date,
       'note': note.trim(),
+      'category': category,
+      'priority': priority,
+      'createdAt': now.toIso8601String(),
     });
 
     await _saveStoredNotes(notes);
@@ -50,6 +59,28 @@ class NotesDatabase {
   Future<void> deleteNote(int id) async {
     final notes = await _getStoredNotes();
     notes.removeWhere((note) => note['id'] == id);
+    await _saveStoredNotes(notes);
+  }
+
+  Future<void> updateNote(
+    int id, {
+    required String note,
+    required String category,
+    required String priority,
+  }) async {
+    final notes = await _getStoredNotes();
+    final index = notes.indexWhere((storedNote) => storedNote['id'] == id);
+
+    if (index == -1) return;
+
+    notes[index] = {
+      ...notes[index],
+      'note': note.trim(),
+      'category': category,
+      'priority': priority,
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+
     await _saveStoredNotes(notes);
   }
 }
