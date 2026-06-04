@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../database/pin_database.dart';
 import '../database/user_database.dart';
 import 'home_screen.dart';
+import 'pin_lock_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -23,9 +25,15 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      final hasPin = await PinDatabase.instance.hasPin();
+
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (_) => hasPin ? const PinLockScreen() : const HomeScreen(),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,7 +74,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(28),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0F766E).withValues(alpha: 0.25),
+                          color:
+                              const Color(0xFF0F766E).withValues(alpha: 0.25),
                           blurRadius: 22,
                           offset: const Offset(0, 12),
                         ),

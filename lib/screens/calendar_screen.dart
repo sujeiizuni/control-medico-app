@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../database/notes_database.dart';
+import '../services/notification_service.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -32,6 +33,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   String selectedCategory = categories.first;
   String selectedPriority = priorities.first;
   String searchQuery = '';
+  TimeOfDay appointmentTime = const TimeOfDay(hour: 9, minute: 0);
+  bool appointmentReminderEnabled = false;
   bool isLoading = true;
 
   @override
@@ -92,11 +95,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
       text,
       category: selectedCategory,
       priority: selectedPriority,
+      reminderTime: selectedCategory == 'Cita' && appointmentReminderEnabled
+          ? formatTime(appointmentTime)
+          : null,
+      reminderEnabled: selectedCategory == 'Cita' && appointmentReminderEnabled,
     );
+
+    if (selectedCategory == 'Cita' && appointmentReminderEnabled) {
+      await NotificationService.instance.scheduleAppointment(
+        id: DateTime.now().millisecondsSinceEpoch,
+        title: text,
+        date: selectedDay,
+        time: formatTime(appointmentTime),
+      );
+    }
+
     noteController.clear();
     setState(() {
       selectedCategory = categories.first;
       selectedPriority = priorities.first;
+      appointmentTime = const TimeOfDay(hour: 9, minute: 0);
+      appointmentReminderEnabled = false;
     });
     await loadNotes();
 
@@ -240,6 +259,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return priorities.contains(value) ? value! : priorities.first;
   }
 
+  String formatTime(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  Future<void> pickAppointmentTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: appointmentTime,
+    );
+
+    if (time == null) return;
+
+    setState(() => appointmentTime = time);
+  }
+
   List<Map<String, dynamic>> get selectedNotes {
     return notesByDate[formatDate(selectedDay)] ?? [];
   }
@@ -316,11 +352,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     categories: categories,
                     priorities: priorities,
                     onCategoryChanged: (value) {
-                      setState(() => selectedCategory = value);
+                      setState(() {
+                        selectedCategory = value;
+                        if (value != 'Cita') appointmentReminderEnabled = false;
+                      });
                     },
                     onPriorityChanged: (value) {
                       setState(() => selectedPriority = value);
                     },
+                    appointmentReminderEnabled: appointmentReminderEnabled,
+                    appointmentTime: formatTime(appointmentTime),
+                    onAppointmentReminderChanged: (value) {
+                      setState(() => appointmentReminderEnabled = value);
+                    },
+                    onPickAppointmentTime: pickAppointmentTime,
                     onSave: saveNote,
                   ),
                   const SizedBox(height: 18),
@@ -349,6 +394,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         text: note['note'] as String,
                         category: noteCategory(note),
                         priority: notePriority(note),
+                        reminderTime: note['reminderTime'] as String?,
+                        reminderEnabled: note['reminderEnabled'] == true,
                         onEdit: () => editNote(note),
                         onDelete: () => deleteNote(note['id'] as int),
                       ),
@@ -369,6 +416,10 @@ class _NoteComposer extends StatelessWidget {
     required this.priorities,
     required this.onCategoryChanged,
     required this.onPriorityChanged,
+    required this.appointmentReminderEnabled,
+    required this.appointmentTime,
+    required this.onAppointmentReminderChanged,
+    required this.onPickAppointmentTime,
     required this.onSave,
   });
 
@@ -379,6 +430,10 @@ class _NoteComposer extends StatelessWidget {
   final List<String> priorities;
   final ValueChanged<String> onCategoryChanged;
   final ValueChanged<String> onPriorityChanged;
+  final bool appointmentReminderEnabled;
+  final String appointmentTime;
+  final ValueChanged<bool> onAppointmentReminderChanged;
+  final VoidCallback onPickAppointmentTime;
   final VoidCallback onSave;
 
   @override
@@ -449,6 +504,25 @@ class _NoteComposer extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          if (selectedCategory == 'Cita') ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: appointmentReminderEnabled,
+              onChanged: onAppointmentReminderChanged,
+              title: const Text('Recordatorio de cita'),
+              secondary: const Icon(Icons.notifications_active_outlined),
+            ),
+            if (appointmentReminderEnabled)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onPickAppointmentTime,
+                  icon: const Icon(Icons.schedule_outlined),
+                  label: Text(appointmentTime),
+                ),
+              ),
+            const SizedBox(height: 12),
+          ],
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -629,6 +703,8 @@ class _NoteCard extends StatelessWidget {
     required this.text,
     required this.category,
     required this.priority,
+    required this.reminderTime,
+    required this.reminderEnabled,
     required this.onEdit,
     required this.onDelete,
   });
@@ -636,6 +712,8 @@ class _NoteCard extends StatelessWidget {
   final String text;
   final String category;
   final String priority;
+  final String? reminderTime;
+  final bool reminderEnabled;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -699,6 +777,11 @@ class _NoteCard extends StatelessWidget {
                   children: [
                     _Tag(text: category, color: const Color(0xFF4F46E5)),
                     _Tag(text: priority, color: priorityColor),
+                    if (reminderEnabled && reminderTime != null)
+                      _Tag(
+                        text: 'Aviso $reminderTime',
+                        color: const Color(0xFF0F766E),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),

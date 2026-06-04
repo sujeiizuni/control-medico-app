@@ -29,6 +29,8 @@ class NotesDatabase {
     String note, {
     String category = 'General',
     String priority = 'Normal',
+    String? reminderTime,
+    bool reminderEnabled = false,
   }) async {
     final notes = await _getStoredNotes();
     final now = DateTime.now();
@@ -39,6 +41,8 @@ class NotesDatabase {
       'note': note.trim(),
       'category': category,
       'priority': priority,
+      'reminderTime': reminderTime,
+      'reminderEnabled': reminderEnabled,
       'createdAt': now.toIso8601String(),
     });
 

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'calendar_screen.dart';
+import 'global_search_screen.dart';
+import 'medications_screen.dart';
+import 'security_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -31,8 +34,8 @@ class HomeScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(18),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF0F766E)
-                                .withValues(alpha: 0.22),
+                            color:
+                                const Color(0xFF0F766E).withValues(alpha: 0.22),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -121,6 +124,46 @@ class HomeScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+                _ActionTile(
+                  icon: Icons.medication_outlined,
+                  title: 'Medicamentos',
+                  subtitle: 'Dosis, horarios, tratamientos y recordatorios.',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MedicationsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+                _ActionTile(
+                  icon: Icons.search_rounded,
+                  title: 'Busqueda global',
+                  subtitle: 'Encuentra notas, citas y medicamentos rapido.',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const GlobalSearchScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+                _ActionTile(
+                  icon: Icons.lock_outline,
+                  title: 'Seguridad',
+                  subtitle: 'Protege la app con un PIN personal.',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SecurityScreen()),
                     );
                   },
                 ),
